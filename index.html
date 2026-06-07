@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Physics Sandbox</title>
+    <!-- Tailwind CSS for modern UI layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons for clean visuals -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        /* Custom scrollbar for control panel */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col md:flex-row overflow-hidden font-sans">
+
+    <!-- Control Panel (Left Sidebar / Top on Mobile) -->
+    <aside class="w-full md:w-96 bg-gray-900 border-b md:border-b-0 md:border-r border-gray-800 flex flex-col max-h-[40vh] md:max-h-screen overflow-y-auto shrink-0 z-10">
+        <!-- Header -->
+        <div class="p-4 border-b border-gray-800 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="p-2 bg-blue-600 rounded-lg text-white">
+                    <i data-lucide="atom" class="w-6 h-6 animate-spin-slow"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-wide bg-gradient-to-r bg-clip-text text-transparent from-blue-400 to-indigo-400">Physics Lab</h1>
+                    <p class="text-xs text-gray-400">2D Rigid-Body Engine</p>
+                </div>
+            </div>
+            <span class="px-2 py-1 text-xs font-semibold bg-gray-800 text-green-400 rounded-full border border-green-900/50 flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Live
+            </span>
+        </div>
+
+        <!-- Controls Container -->
+        <div class="p-4 space-y-6 flex-1">
+            <!-- Object Spawner -->
+            <div class="space-y-3">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                    <i data-lucide="plus-circle" class="w-4 h-4 text-blue-400"></i> Spawn Objects
+                </h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="spawn-circle-btn" class="flex items-center justify-center gap-2 px-3 py-2.5 bg-gray-800 hover:bg-gray-750 border border-gray-700 hover:border-blue-500 rounded-lg transition text-sm font-medium">
+                        <i data-lucide="circle" class="w-4 h-4 text-blue-400"></i> Sphere
+                    </button>
+                    <button id="spawn-box-btn" class="flex items-center justify-center gap-2 px-3 py-2.5 bg-gray-800 hover:bg-gray-750 border border-gray-700 hover:border-purple-500 rounded-lg transition text-sm font-medium">
+                        <i data-lucide="square" class="w-4 h-4 text-purple-400"></i> Cube
+                    </button>
+                </div>
+            </div>
+
+            <!-- Parameters Section -->
+            <div class="space-y-4">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                    <i data-lucide="sliders" class="w-4 h-4 text-emerald-400"></i> Environment Variables
+                </h3>
+
+                <!-- Gravity Slider -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-xs font-medium">
+                        <span class="text-gray-300">Gravity ($g$)</span>
+                        <span id="gravity-val" class="text-emerald-400">9.81 m/s²</span>
+                    </div>
+                    <input id="gravity-slider" type="range" min="0" max="30" step="0.1" value="9.8" class="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                </div>
+
+                <!-- Wind/Horizontal Force Slider -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-xs font-medium">
+                        <span class="text-gray-300">Wind Force</span>
+                        <span id="wind-val" class="text-teal-400">0.0 N</span>
+                    </div>
+                    <input id="wind-slider" type="range" min="-10" max="10" step="0.2" value="0" class="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-teal-500">
+                </div>
+
+                <!-- Restitution / Elasticity Slider -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-xs font-medium">
+                        <span class="text-gray-300">Bounciness (Restitution)</span>
+                        <span id="restitution-val" class="text-indigo-400">0.7</span>
+                    </div>
+                    <input id="restitution-slider" type="range" min="0" max="1" step="0.05" value="0.7" class="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                </div>
+
+                <!-- Friction/Drag Slider -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-xs font-medium">
+                        <span class="text-gray-300">Air Resistance</span>
+                        <span id="drag-val" class="text-cyan-400">0.01</span>
+                    </div>
+                    <input id="drag-slider" type="range" min="0" max="0.1" step="0.005" value="0.01" class="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                </div>
+            </div>
+
+            <!-- Interactivity Options -->
+            <div class="space-y-3">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                    <i data-lucide="mouse-pointer" class="w-4 h-4 text-pink-400"></i> Mouse Interaction
+                </h3>
+                <div class="space-y-2">
+                    <label class="flex items-center gap-3 p-2 bg-gray-850 border border-gray-800 rounded-lg cursor-pointer hover:border-gray-700 transition">
+                        <input id="drag-mode" type="radio" name="mouse-action" value="drag" checked class="w-4 h-4 text-blue-600 bg-gray-800 border-gray-700 focus:ring-blue-500">
+                        <div class="text-xs">
+                            <p class="font-semibold text-gray-200">Drag & Sling</p>
+                            <p class="text-gray-400">Click and drag objects to throw them</p>
+                        </div>
+                    </label>
+                    <label class="flex items-center gap-3 p-2 bg-gray-850 border border-gray-800 rounded-lg cursor-pointer hover:border-gray-700 transition">
+                        <input id="spring-mode" type="radio" name="mouse-action" value="spring" class="w-4 h-4 text-blue-600 bg-gray-800 border-gray-700 focus:ring-blue-500">
+                        <div class="text-xs">
+                            <p class="font-semibold text-gray-200">Elastic Rope Spring</p>
+                            <p class="text-gray-400">Attach a virtual elastic tether string</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="pt-2 border-t border-gray-800 space-y-2">
+                <button id="clear-btn" class="w-full py-2 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-900 text-rose-300 rounded-lg transition text-xs font-semibold flex items-center justify-center gap-2">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i> Clear Sandbox
+                </button>
+                <button id="reset-params-btn" class="w-full py-2 bg-gray-850 hover:bg-gray-800 border border-gray-700 text-gray-300 rounded-lg transition text-xs font-semibold flex items-center justify-center gap-2">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset Parameters
+                </button>
+            </div>
+        </div>
+
+        <!-- Telemetry Stats Footer inside sidebar -->
+        <div class="p-4 bg-gray-950 border-t border-gray-800 grid grid-cols-2 gap-3 text-xs">
+            <div class="bg-gray-900/60 p-2 rounded border border-gray-800">
+                <p class="text-gray-500">System Energy</p>
+                <p id="stat-energy" class="font-mono text-gray-200 font-bold">0.00 J</p>
+            </div>
+            <div class="bg-gray-900/60 p-2 rounded border border-gray-800">
+                <p class="text-gray-500">Total Momentum</p>
+                <p id="stat-momentum" class="font-mono text-gray-200 font-bold">0.00 Ns</p>
+            </div>
+            <div class="bg-gray-900/60 p-2 rounded border border-gray-800">
+                <p class="text-gray-500">Object Count</p>
+                <p id="stat-count" class="font-mono text-gray-200 font-bold">0</p>
+            </div>
+            <div class="bg-gray-900/60 p-2 rounded border border-gray-800">
+                <p class="text-gray-500">Engine Rate</p>
+                <p id="stat-fps" class="font-mono text-green-400 font-bold">60 Hz</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Canvas Simulation Area -->
+    <main class="flex-1 relative bg-gray-950 flex flex-col justify-between overflow-hidden">
+        <!-- Live Instructions Badge overlay -->
+        <div class="absolute top-4 left-4 z-10 pointer-events-none space-y-1">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-900/90 backdrop-blur border border-gray-800 rounded-full text-xs font-medium text-gray-300">
+                <i data-lucide="info" class="w-4 h-4 text-blue-400"></i> Drag-throw elements, toggle gravity, or create chaos!
+            </span>
+        </div>
+
+        <!-- Canvas Container -->
+        <div id="canvas-container" class="w-full h-full relative cursor-crosshair">
+            <canvas id="physics-canvas" class="block w-full h-full"></canvas>
+        </div>
+    </main>
+
+    <!-- Simulation Code logic -->
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // Canvas Setup
+        const canvas = document.getElementById('physics-canvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+
+        // Environmental variables setup
+        let config = {
+            gravity: 0.35, // base gravity acceleration mapping from slider
+            wind: 0,
+            restitution: 0.7, // elasticity
+            drag: 0.01, // air resistance friction
+            interactMode: 'drag', // or 'spring'
+            springK: 0.04 // elastic rope spring constant
+        };
+
+        // DOM elements for inputs
+        const gravitySlider = document.getElementById('gravity-slider');
+        const gravityVal = document.getElementById('gravity-val');
+        const windSlider = document.getElementById('wind-slider');
+        const windVal = document.getElementById('wind-val');
+        const restitutionSlider = document.getElementById('restitution-slider');
+        const restitutionVal = document.getElementById('restitution-val');
+        const dragSlider = document.getElementById('drag-slider');
+        const dragVal = document.getElementById('drag-val');
+
+        const spawnCircleBtn = document.getElementById('spawn-circle-btn');
+        const spawnBoxBtn = document.getElementById('spawn-box-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const resetParamsBtn = document.getElementById('reset-params-btn');
+
+        const dragModeRadio = document.getElementById('drag-mode');
+        const springModeRadio = document.getElementById('spring-mode');
+
+        // Stats Display Elements
+        const statEnergy = document.getElementById('stat-energy');
+        const statMomentum = document.getElementById('stat-momentum');
+        const statCount = document.getElementById('stat-count');
+        const statFps = document.getElementById('stat-fps');
+
+        // Sync Slider values with configuration setup
+        function updateConfigFromUI() {
+            config.gravity = parseFloat(gravitySlider.value) * 0.035; // calibration scale factor
+            gravityVal.innerText = `${gravitySlider.value} m/s²`;
+
+            config.wind = parseFloat(windSlider.value) * 0.035;
+            windVal.innerText = `${parseFloat(windSlider.value).toFixed(1)} N`;
+
+            config.restitution = parseFloat(restitutionSlider.value);
+            restitutionVal.innerText = config.restitution.toFixed(2);
+
+            config.drag = parseFloat(dragSlider.value);
+            dragVal.innerText = config.drag.toFixed(3);
+        }
+
+        // Attach event listeners to all sliders
+        [gravitySlider, windSlider, restitutionSlider, dragSlider].forEach(slider => {
+            slider.addEventListener('input', updateConfigFromUI);
+        });
+
+        // Set Interaction mode
+        function updateInteractivityMode() {
+            config.interactMode = dragModeRadio.checked ? 'drag' : 'spring';
+        }
+        dragModeRadio.addEventListener('change', updateInteractivityMode);
+        springModeRadio.addEventListener('change', updateInteractivityMode);
+
+        // Resize Canvas to fit screen optimally
+        function resizeCanvas() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // 2D Vector Helper Functions
+        class Vector2D {
+            constructor(x = 0, y = 0) {
+                this.x = x;
+                this.y = y;
+            }
+            add(v) { return new Vector2D(this.x + v.x, this.y + v.y); }
+            sub(v) { return new Vector2D(this.x - v.x, this.y - v.y); }
+            mult(n) { return new Vector2D(this.x * n, this.y * n); }
+            div(n) { return n !== 0 ? new Vector2D(this.x / n, this.y / n) : new Vector2D(); }
+            magnitude() { return Math.sqrt(this.x * this.x + this.y * this.y); }
+            dot(v) { return this.x * v.x + this.y * v.y; }
+            normalize() {
+                const m = this.magnitude();
+                return m !== 0 ? this.div(m) : new Vector2D();
+            }
+            dist(v) { return Math.sqrt((this.x - v.x)**2 + (this.y - v.y)**2); }
+        }
+
+        // Rigid Body Object Definitions
+        class RigidBody {
+            constructor(x, y, shape = 'circle', width = 40, height = 40) {
+                this.pos = new Vector2D(x, y);
+                this.vel = new Vector2D((Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4);
+                this.acc = new Vector2D(0, 0);
+                this.shape = shape; // 'circle' or 'box'
+                this.radius = width / 2; // For Circle
+                this.w = width; // For Box
+                this.h = height; // For Box
+                
+                // Physics properties based on dimensions
+                this.mass = shape === 'circle' ? (Math.PI * this.radius * this.radius) / 200 : (this.w * this.h) / 200;
+                this.invMass = this.mass !== 0 ? 1 / this.mass : 0;
+                
+                // Color configuration mapping
+                this.color = this.getRandomVibrantColor();
+            }
+
+            getRandomVibrantColor() {
+                const colors = [
+                    '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', 
+                    '#06b6d4', '#f43f5e', '#14b8a6', '#6366f1', '#a855f7'
+                ];
+                return colors[Math.floor(Math.random() * colors.length)];
+            }
+
+            applyForce(force) {
+                this.acc = this.acc.add(force.mult(this.invMass));
+            }
+
+            update() {
+                // Apply drag resistance
+                const airResistance = this.vel.mult(-config.drag);
+                this.applyForce(airResistance);
+
+                // Integrate Kinematics
+                this.vel = this.vel.add(this.acc);
+                this.pos = this.pos.add(this.vel);
+                
+                // Clear Accelerations
+                this.acc = new Vector2D(0, 0);
+            }
+
+            draw() {
+                ctx.save();
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = this.color + '40'; // Transparent glow shadow
+                ctx.fillStyle = this.color;
+                ctx.strokeStyle = this.color + 'aa';
+                ctx.lineWidth = 1.5;
+
+                if (this.shape === 'circle') {
+                    // Draw Sphere
+                    ctx.beginPath();
+                    ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Draw inner lighting circle (semi-realistic depth)
+                    ctx.beginPath();
+                    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+                    ctx.arc(this.pos.x - this.radius/3, this.pos.y - this.radius/3, this.radius/3, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (this.shape === 'box') {
+                    // Draw rounded rectangle Box
+                    ctx.beginPath();
+                    const x = this.pos.x - this.w / 2;
+                    const y = this.pos.y - this.h / 2;
+                    const r = 6; // Corner radius
+                    ctx.moveTo(x + r, y);
+                    ctx.arcTo(x + this.w, y, x + this.w, y + this.h, r);
+                    ctx.arcTo(x + this.w, y + this.h, x, y + this.h, r);
+                    ctx.arcTo(x, y + this.h, x, y, r);
+                    ctx.arcTo(x, y, x + this.w, y, r);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Subtle highlights
+                    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+                    ctx.fillRect(this.pos.x - this.w/2 + 2, this.pos.y - this.h/2 + 2, this.w - 4, this.h/4);
+                }
+                ctx.restore();
+            }
+
+            // Boundary limits collision detection and handling
+            checkBoundaries(width, height) {
+                const rest = config.restitution;
+
+                if (this.shape === 'circle') {
+                    if (this.pos.x - this.radius < 0) {
+                        this.pos.x = this.radius;
+                        this.vel.x = -this.vel.x * rest;
+                    } else if (this.pos.x + this.radius > width) {
+                        this.pos.x = width - this.radius;
+                        this.vel.x = -this.vel.x * rest;
+                    }
+                    if (this.pos.y - this.radius < 0) {
+                        this.pos.y = this.radius;
+                        this.vel.y = -this.vel.y * rest;
+                    } else if (this.pos.y + this.radius > height) {
+                        this.pos.y = height - this.radius;
+                        this.vel.y = -this.vel.y * rest;
+                    }
+                } else if (this.shape === 'box') {
+                    const hw = this.w / 2;
+                    const hh = this.h / 2;
+
+                    if (this.pos.x - hw < 0) {
+                        this.pos.x = hw;
+                        this.vel.x = -this.vel.x * rest;
+                    } else if (this.pos.x + hw > width) {
+                        this.pos.x = width - hw;
+                        this.vel.x = -this.vel.x * rest;
+                    }
+                    if (this.pos.y - hh < 0) {
+                        this.pos.y = hh;
+                        this.vel.y = -this.vel.y * rest;
+                    } else if (this.pos.y + hh > height) {
+                        this.pos.y = height - hh;
+                        this.vel.y = -this.vel.y * rest;
+                    }
+                }
+            }
+        }
+
+        // Instantiated Objects Collection Array
+        let bodies = [];
+
+        // Spawn logic helpers
+        function spawnObject(type) {
+            const size = Math.random() * (50 - 25) + 25; // Random size within range
+            const margin = 100;
+            const x = Math.random() * (canvas.width - margin * 2) + margin;
+            const y = Math.random() * (canvas.height/3) + margin; // upper portion
+
+            bodies.push(new RigidBody(x, y, type, size, size));
+        }
+
+        // Setup base triggers
+        spawnCircleBtn.addEventListener('click', () => spawnObject('circle'));
+        spawnBoxBtn.addEventListener('click', () => spawnObject('box'));
+        clearBtn.addEventListener('click', () => { bodies = []; });
+        resetParamsBtn.addEventListener('click', () => {
+            gravitySlider.value = 9.8;
+            windSlider.value = 0;
+            restitutionSlider.value = 0.7;
+            dragSlider.value = 0.01;
+            updateConfigFromUI();
+        });
+
+        // Seed with starting objects
+        for (let i = 0; i < 8; i++) {
+            spawnObject(Math.random() > 0.5 ? 'circle' : 'box');
+        }
+
+        // Mouse Drag & Spring Rope state variables
+        let selectedBody = null;
+        let isDragging = false;
+        let mousePos = new Vector2D(0, 0);
+        let dragOffset = new Vector2D(0, 0);
+
+        // Mouse Action Event Handlers
+        function getCanvasCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            // Supports touch events as well
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return new Vector2D(clientX - rect.left, clientY - rect.top);
+        }
+
+        function handlePointerDown(e) {
+            const clickPos = getCanvasCoordinates(e);
+            mousePos = clickPos;
+
+            // Detect matching body
+            for (let i = bodies.length - 1; i >= 0; i--) {
+                const b = bodies[i];
+                if (b.shape === 'circle') {
+                    if (clickPos.dist(b.pos) < b.radius) {
+                        selectedBody = b;
+                        dragOffset = b.pos.sub(clickPos);
+                        isDragging = true;
+                        break;
+                    }
+                } else if (b.shape === 'box') {
+                    if (clickPos.x > b.pos.x - b.w/2 && clickPos.x < b.pos.x + b.w/2 &&
+                        clickPos.y > b.pos.y - b.h/2 && clickPos.y < b.pos.y + b.h/2) {
+                        selectedBody = b;
+                        dragOffset = b.pos.sub(clickPos);
+                        isDragging = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        function handlePointerMove(e) {
+            if (!isDragging) return;
+            const currentPos = getCanvasCoordinates(e);
+            mousePos = currentPos;
+
+            if (config.interactMode === 'drag' && selectedBody) {
+                // Direct positional snapping while dragging
+                selectedBody.pos = currentPos.add(dragOffset);
+                selectedBody.vel = new Vector2D(0, 0); // steady speed under hold
+            }
+        }
+
+        function handlePointerUp() {
+            if (isDragging && selectedBody && config.interactMode === 'drag') {
+                // Instantly inject mild velocity impulse to launch object
+                selectedBody.vel = new Vector2D((Math.random() - 0.5) * 6, -Math.random() * 5 - 2);
+            }
+            isDragging = false;
+            selectedBody = null;
+        }
+
+        // Mouse Event bindings
+        canvas.addEventListener('mousedown', handlePointerDown);
+        canvas.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('mouseup', handlePointerUp);
+
+        // Touch Interaction bindings
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handlePointerDown(e);
+        });
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            handlePointerMove(e);
+        });
+        window.addEventListener('touchend', handlePointerUp);
+
+        // Collision Engine logic (Narrow-phase resolution)
+        function checkAndResolveCollisions() {
+            for (let i = 0; i < bodies.length; i++) {
+                for (let j = i + 1; j < bodies.length; j++) {
+                    const bA = bodies[i];
+                    const bB = bodies[j];
+
+                    if (bA.shape === 'circle' && bB.shape === 'circle') {
+                        resolveCircleToCircle(bA, bB);
+                    } else if (bA.shape === 'box' && bB.shape === 'box') {
+                        resolveBoxToBox(bA, bB);
+                    } else {
+                        // Hybrid Circle-Box collision detection
+                        const circle = bA.shape === 'circle' ? bA : bB;
+                        const box = bA.shape === 'box' ? bA : bB;
+                        resolveCircleToBox(circle, box);
+                    }
+                }
+            }
+        }
+
+        function resolveCircleToCircle(bA, bB) {
+            const normal = bB.pos.sub(bA.pos);
+            const distance = normal.magnitude();
+            const minDistance = bA.radius + bB.radius;
+
+            if (distance >= minDistance) return; // No overlap
+
+            // Push/Correction normal
+            const collisionNormal = distance === 0 ? new Vector2D(0, -1) : normal.normalize();
+            const overlap = minDistance - distance;
+
+            // Positional Correction (prevents overlapping sinkholes)
+            const percent = 0.45; // penetration percentage
+            const slop = 0.02; // penetration allowance
+            const correctionAmount = Math.max(0, overlap - slop) / (bA.invMass + bB.invMass) * percent;
+            const correctionVector = collisionNormal.mult(correctionAmount);
+            
+            bA.pos = bA.pos.sub(correctionVector.mult(bA.invMass));
+            bB.pos = bB.pos.add(correctionVector.mult(bB.invMass));
+
+            // Impulse Physics Resolution (Relative Velocity)
+            const relativeVelocity = bB.vel.sub(bA.vel);
+            const velAlongNormal = relativeVelocity.dot(collisionNormal);
+
+            if (velAlongNormal > 0) return; // Separating velocities already
+
+            // Take average elasticity
+            const e = config.restitution;
+
+            // Calculate impulse scalar
+            let jScalar = -(1 + e) * velAlongNormal;
+            jScalar /= (bA.invMass + bB.invMass);
+
+            // Apply impulse vector
+            const impulse = collisionNormal.mult(jScalar);
+            bA.vel = bA.vel.sub(impulse.mult(bA.invMass));
+            bB.vel = bB.vel.add(impulse.mult(bB.invMass));
+        }
+
+        // Simplified Axis-Aligned Box (AABB) collision handler
+        function resolveBoxToBox(bA, bB) {
+            const overlapX = (bA.w/2 + bB.w/2) - Math.abs(bB.pos.x - bA.pos.x);
+            const overlapY = (bA.h/2 + bB.h/2) - Math.abs(bB.pos.y - bA.pos.y);
+
+            if (overlapX > 0 && overlapY > 0) {
+                // Normal direction pointing away from A to B
+                let normal;
+                let penetration = 0;
+
+                if (overlapX < overlapY) {
+                    penetration = overlapX;
+                    normal = bB.pos.x > bA.pos.x ? new Vector2D(1, 0) : new Vector2D(-1, 0);
+                } else {
+                    penetration = overlapY;
+                    normal = bB.pos.y > bA.pos.y ? new Vector2D(0, 1) : new Vector2D(0, -1);
+                }
+
+                // Positional correction
+                const correction = normal.mult(penetration / (bA.invMass + bB.invMass) * 0.45);
+                bA.pos = bA.pos.sub(correction.mult(bA.invMass));
+                bB.pos = bB.pos.add(correction.mult(bB.invMass));
+
+                // Impulse application
+                const relativeVelocity = bB.vel.sub(bA.vel);
+                const velAlongNormal = relativeVelocity.dot(normal);
+
+                if (velAlongNormal > 0) return;
+
+                const e = config.restitution;
+                const impulseScalar = -(1 + e) * velAlongNormal / (bA.invMass + bB.invMass);
+                const impulse = normal.mult(impulseScalar);
+
+                bA.vel = bA.vel.sub(impulse.mult(bA.invMass));
+                bB.vel = bB.vel.add(impulse.mult(bB.invMass));
+            }
+        }
+
+        function resolveCircleToBox(circle, box) {
+            // Find closest point on box to circle
+            const closestX = Math.max(box.pos.x - box.w/2, Math.min(circle.pos.x, box.pos.x + box.w/2));
+            const closestY = Math.max(box.pos.y - box.h/2, Math.min(circle.pos.y, box.pos.y + box.h/2));
+
+            const closestPoint = new Vector2D(closestX, closestY);
+            const normal = circle.pos.sub(closestPoint);
+            const distance = normal.magnitude();
+
+            // Collision check
+            if (distance >= circle.radius) return;
+
+            // Resolving logic
+            const collisionNormal = distance === 0 ? new Vector2D(0, -1) : normal.normalize();
+            const overlap = circle.radius - distance;
+
+            // Positional Correction
+            const correction = collisionNormal.mult(overlap / (circle.invMass + box.invMass) * 0.45);
+            circle.pos = circle.pos.add(correction.mult(circle.invMass));
+            box.pos = box.pos.sub(correction.mult(box.invMass));
+
+            // Velocities resolution
+            const relativeVelocity = circle.vel.sub(box.vel);
+            const velAlongNormal = relativeVelocity.dot(collisionNormal);
+
+            if (velAlongNormal > 0) return;
+
+            const e = config.restitution;
+            const impulseScalar = -(1 + e) * velAlongNormal / (circle.invMass + box.invMass);
+            const impulse = collisionNormal.mult(impulseScalar);
+
+            circle.vel = circle.vel.add(impulse.mult(circle.invMass));
+            box.vel = box.vel.sub(impulse.mult(box.invMass));
+        }
+
+        // Live stats analytics aggregator
+        function calculateSystemPhysicsTelemetry() {
+            let totalKineticEnergy = 0;
+            let totalMomentumMagnitude = 0;
+
+            bodies.forEach(b => {
+                const velSq = b.vel.x * b.vel.x + b.vel.y * b.vel.y;
+                // Kinetic Energy = 0.5 * m * v^2
+                totalKineticEnergy += 0.5 * b.mass * velSq;
+                // Momentum = m * v
+                totalMomentumMagnitude += b.mass * b.vel.magnitude();
+            });
+
+            // Update UI
+            statEnergy.innerText = `${(totalKineticEnergy / 10).toFixed(2)} J`;
+            statMomentum.innerText = `${(totalMomentumMagnitude / 10).toFixed(2)} Ns`;
+            statCount.innerText = bodies.length;
+        }
+
+        // Engine Frame Tracker FPS calculator
+        let lastFrameTime = performance.now();
+        let frameCount = 0;
+        let fps = 60;
+
+        function updateFpsCounter() {
+            const now = performance.now();
+            frameCount++;
+            if (now - lastFrameTime >= 1000) {
+                fps = frameCount;
+                frameCount = 0;
+                lastFrameTime = now;
+                statFps.innerText = `${fps} Hz`;
+            }
+        }
+
+        // Principal Simulation Loop
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw a techy ambient grid pattern background
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+            ctx.lineWidth = 1;
+            const gridSize = 40;
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // Spring Rope logic (draw spring string to cursor hook)
+            if (isDragging && selectedBody && config.interactMode === 'spring') {
+                ctx.save();
+                ctx.beginPath();
+                ctx.strokeStyle = '#f43f5e';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.moveTo(selectedBody.pos.x, selectedBody.pos.y);
+                ctx.lineTo(mousePos.x, mousePos.y);
+                ctx.stroke();
+                ctx.restore();
+
+                // Hooke's Law spring force calculation
+                const springForceVec = mousePos.sub(selectedBody.pos);
+                const forceMag = springForceVec.magnitude() * config.springK;
+                const springForce = springForceVec.normalize().mult(forceMag);
+                selectedBody.applyForce(springForce);
+            }
+
+            // Loop updates & application of state
+            bodies.forEach(body => {
+                // Apply Gravitational constant acceleration force (F = m * g)
+                const gravityForce = new Vector2D(0, config.gravity * body.mass);
+                body.applyForce(gravityForce);
+
+                // Apply dynamic horizontal constant wind force
+                const windForce = new Vector2D(config.wind * body.mass, 0);
+                body.applyForce(windForce);
+
+                // Update physical coordinate movements (Only if not being directly repositioned by user in classic drag mode)
+                if (!(isDragging && selectedBody === body && config.interactMode === 'drag')) {
+                    body.update();
+                }
+
+                body.checkBoundaries(canvas.width, canvas.height);
+            });
+
+            // Perform Narrow Phase Inter-body Collisions
+            checkAndResolveCollisions();
+
+            // Render all rigid bodies
+            bodies.forEach(body => body.draw());
+
+            // Run system diagnostic telemetry metrics
+            calculateSystemPhysicsTelemetry();
+            updateFpsCounter();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize UI Settings on launch
+        updateConfigFromUI();
+
+        // Start animation loop once DOM and windows are stable
+        window.onload = function() {
+            gameLoop();
+        }
+    </script>
+</body>
+</html>
