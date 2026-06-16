@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Orbital Mechanics Simulator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        /* Style range inputs uniformly across browsers */
+        input[type="range"]::-webkit-slider-runnable-track {
+            background: #1f2937;
+            height: 6px;
+            border-radius: 9999px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            margin-top: -5px;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col lg:flex-row overflow-hidden font-sans">
+
+    <!-- Control & Dashboard Panel (Sidebar) -->
+    <aside class="w-full lg:w-[420px] bg-slate-900 border-b lg:border-b-0 lg:border-r border-slate-800 flex flex-col max-h-[45vh] lg:max-h-screen overflow-y-auto shrink-0 z-20 shadow-2xl">
+        <!-- Header -->
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between sticky top-0 bg-slate-900 z-10">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-500/20">
+                    <i data-lucide="orbit" class="w-6 h-6 animate-spin-slow text-indigo-100"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-lg tracking-wide bg-gradient-to-r bg-clip-text text-transparent from-indigo-400 via-purple-400 to-cyan-400">Gravity Lab</h1>
+                    <p class="text-xs text-slate-400">Orbital Trajectory Sandbox</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="play-pause-btn" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition" title="Pause/Resume Simulation">
+                    <i id="play-pause-icon" data-lucide="pause" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Settings Panel -->
+        <div class="p-5 space-y-6 flex-1">
+            <!-- Mission Control Presets -->
+            <div class="space-y-3">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <i data-lucide="rocket" class="w-4 h-4 text-indigo-400"></i> Mission Profiles
+                </h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="preset-leo" class="px-3 py-2 bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-indigo-500 rounded-lg transition text-xs font-semibold text-left flex flex-col gap-0.5 shadow">
+                        <span class="text-slate-100">Circular LEO</span>
+                        <span class="text-[10px] text-slate-400">Low Earth Orbit</span>
+                    </button>
+                    <button id="preset-geo" class="px-3 py-2 bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-indigo-500 rounded-lg transition text-xs font-semibold text-left flex flex-col gap-0.5 shadow">
+                        <span class="text-slate-100">Highly Elliptic</span>
+                        <span class="text-[10px] text-slate-400">Molniya Profile</span>
+                    </button>
+                    <button id="preset-escape" class="px-3 py-2 bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-indigo-500 rounded-lg transition text-xs font-semibold text-left flex flex-col gap-0.5 shadow">
+                        <span class="text-slate-100">Hyperbolic Escape</span>
+                        <span class="text-[10px] text-slate-400">Beyond Earth Escape</span>
+                    </button>
+                    <button id="preset-decay" class="px-3 py-2 bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-indigo-500 rounded-lg transition text-xs font-semibold text-left flex flex-col gap-0.5 shadow">
+                        <span class="text-slate-100">Atmospheric Decay</span>
+                        <span class="text-[10px] text-slate-400">Orbital Re-entry</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Manual Flight Engine Thrusters -->
+            <div class="space-y-3">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <i data-lucide="navigation" class="w-4 h-4 text-emerald-400"></i> Propulsion Thruster Controls
+                </h3>
+                <div class="p-3.5 bg-slate-950/50 rounded-xl border border-slate-800/80 space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="thrust-prograde" class="flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/80 text-emerald-300 rounded-lg transition text-xs font-bold shadow-sm" title="Speed up along trajectory direction">
+                            <i data-lucide="chevrons-up" class="w-4 h-4"></i> Prograde (+v)
+                        </button>
+                        <button id="thrust-retrograde" class="flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/80 text-rose-300 rounded-lg transition text-xs font-bold shadow-sm" title="Slow down against trajectory direction">
+                            <i data-lucide="chevrons-down" class="w-4 h-4"></i> Retrograde (-v)
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="thrust-radial-in" class="flex items-center justify-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-300 rounded-lg transition text-[11px] font-semibold" title="Thrust inward toward Earth">
+                            <i data-lucide="arrow-down-to-dot" class="w-3.5 h-3.5 mr-0.5"></i> Radial In
+                        </button>
+                        <button id="thrust-radial-out" class="flex items-center justify-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-300 rounded-lg transition text-[11px] font-semibold" title="Thrust outward away from Earth">
+                            <i data-lucide="arrow-up-from-dot" class="w-3.5 h-3.5 mr-0.5"></i> Radial Out
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-slate-500 text-center">Controls apply to active satellite. You can also use Keyboard <kbd class="px-1.5 py-0.5 bg-slate-900 border border-slate-800 rounded">W</kbd> <kbd class="px-1.5 py-0.5 bg-slate-900 border border-slate-800 rounded">S</kbd> <kbd class="px-1.5 py-0.5 bg-slate-900 border border-slate-800 rounded">A</kbd> <kbd class="px-1.5 py-0.5 bg-slate-900 border border-slate-800 rounded">D</kbd> keys!</p>
+                </div>
+            </div>
+
+            <!-- Satellite Configuration & Spawners -->
+            <div class="space-y-3">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <i data-lucide="plus-circle" class="w-4 h-4 text-cyan-400"></i> Satellites & Space Debris
+                </h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="spawn-satellite" class="px-3 py-2 bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-cyan-500 rounded-lg transition text-xs font-semibold flex items-center justify-center gap-1.5">
+                        <i data-lucide="pocket" class="w-4 h-4 text-cyan-400"></i> Active Sat
+                    </button>
+                    <button id="spawn-debris" class="px-3 py-2 bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-amber-500 rounded-lg transition text-xs font-semibold flex items-center justify-center gap-1.5">
+                        <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i> Space Debris
+                    </button>
+                </div>
+            </div>
+
+            <!-- Physics Adjustments -->
+            <div class="space-y-4">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <i data-lucide="sliders" class="w-4 h-4 text-purple-400"></i> Physics Parameters
+                </h3>
+
+                <!-- Gravity Slider -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-xs font-semibold">
+                        <span class="text-slate-300">Earth Gravity ($GM$)</span>
+                        <span id="gravity-val" class="text-purple-400 font-mono">1.0x</span>
+                    </div>
+                    <input id="gravity-slider" type="range" min="0.2" max="2.5" step="0.1" value="1.0" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500">
+                </div>
+
+                <!-- Sim Speed Slider -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-xs font-semibold">
+                        <span class="text-slate-300">Simulation Warp Speed</span>
+                        <span id="warp-val" class="text-cyan-400 font-mono">1.0x</span>
+                    </div>
+                    <input id="warp-slider" type="range" min="0" max="3" step="0.1" value="1.0" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                </div>
+            </div>
+
+            <!-- Display Customizer -->
+            <div class="space-y-2">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <i data-lucide="eye" class="w-4 h-4 text-indigo-400"></i> Display Options
+                </h3>
+                <div class="space-y-2">
+                    <label class="flex items-center justify-between p-2.5 bg-slate-950/30 rounded-lg border border-slate-800/80 cursor-pointer hover:border-slate-750 transition">
+                        <span class="text-xs font-medium text-slate-300">Show Prediction Line</span>
+                        <input id="toggle-prediction" type="checkbox" checked class="w-4 h-4 text-indigo-600 bg-slate-800 border-slate-750 rounded focus:ring-indigo-500">
+                    </label>
+                    <label class="flex items-center justify-between p-2.5 bg-slate-950/30 rounded-lg border border-slate-800/80 cursor-pointer hover:border-slate-750 transition">
+                        <span class="text-xs font-medium text-slate-300">Show Vector Force Lines</span>
+                        <input id="toggle-vectors" type="checkbox" checked class="w-4 h-4 text-indigo-600 bg-slate-800 border-slate-750 rounded focus:ring-indigo-500">
+                    </label>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="pt-2 border-t border-slate-800 flex gap-2">
+                <button id="clear-debris-btn" class="flex-1 py-2 bg-slate-850 hover:bg-slate-800 border border-slate-700 text-slate-300 rounded-lg transition text-xs font-bold flex items-center justify-center gap-1.5">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i> Clear Debris
+                </button>
+                <button id="reset-btn" class="flex-1 py-2 bg-indigo-950/40 hover:bg-indigo-900/40 border border-indigo-900/60 text-indigo-300 rounded-lg transition text-xs font-bold flex items-center justify-center gap-1.5">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Full Reset
+                </button>
+            </div>
+        </div>
+
+        <!-- Real-time Telemetry Dashboard (Sidebar Footer) -->
+        <div class="p-4 bg-slate-950 border-t border-slate-800 space-y-2.5 shrink-0">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <i data-lucide="activity" class="w-4 h-4 text-amber-400"></i> Primary Satellite Telemetry
+            </h3>
+            <div id="telemetry-grid" class="grid grid-cols-2 gap-2 text-[11px]">
+                <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800 shadow-sm">
+                    <p class="text-slate-500 font-medium uppercase tracking-wider text-[9px]">Orbital Velocity</p>
+                    <p id="tel-velocity" class="font-mono text-slate-200 font-extrabold text-xs mt-0.5">0.00 km/s</p>
+                </div>
+                <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800 shadow-sm">
+                    <p class="text-slate-500 font-medium uppercase tracking-wider text-[9px]">Altitude</p>
+                    <p id="tel-altitude" class="font-mono text-slate-200 font-extrabold text-xs mt-0.5">0.00 km</p>
+                </div>
+                <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800 shadow-sm">
+                    <p class="text-slate-500 font-medium uppercase tracking-wider text-[9px]">Eccentricity ($e$)</p>
+                    <p id="tel-eccentricity" class="font-mono text-slate-200 font-extrabold text-xs mt-0.5">0.000</p>
+                </div>
+                <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800 shadow-sm">
+                    <p class="text-slate-500 font-medium uppercase tracking-wider text-[9px]">Mission Status</p>
+                    <p id="tel-status" class="font-mono text-emerald-400 font-extrabold text-xs mt-0.5">Orbit Stable</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Space Simulation Canvas -->
+    <main class="flex-1 relative bg-slate-950 flex flex-col justify-between overflow-hidden">
+        <!-- Floating Tip -->
+        <div class="absolute top-4 left-4 z-10 pointer-events-none hidden sm:block">
+            <span class="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-full text-xs text-slate-300 shadow-2xl">
+                <i data-lucide="mouse-pointer" class="w-4 h-4 text-indigo-400 animate-bounce"></i> Click and Drag anywhere to launch/slingshot a satellite!
+            </span>
+        </div>
+
+        <!-- Canvas Container -->
+        <div id="canvas-container" class="w-full h-full relative">
+            <canvas id="orbit-canvas" class="block w-full h-full cursor-crosshair"></canvas>
+        </div>
+    </main>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Canvas element settings
+        const canvas = document.getElementById('orbit-canvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+
+        // Physics parameters (scaled variables for accurate canvas dynamics)
+        const G = 0.1; // Gravitational constant
+        let earthMass = 12000;
+        const earthRadius = 55;
+        let timeWarp = 1.0;
+        let isPaused = false;
+
+        // Satellite & space objects arrays
+        let satellites = [];
+        let debris = [];
+
+        // UI Interactive Vector Sling setup
+        let isSlinging = false;
+        let slingStart = { x: 0, y: 0 };
+        let slingCurrent = { x: 0, y: 0 };
+        let showPrediction = true;
+        let showVectors = true;
+
+        // Input Nodes
+        const gravitySlider = document.getElementById('gravity-slider');
+        const gravityVal = document.getElementById('gravity-val');
+        const warpSlider = document.getElementById('warp-slider');
+        const warpVal = document.getElementById('warp-val');
+        const togglePrediction = document.getElementById('toggle-prediction');
+        const toggleVectors = document.getElementById('toggle-vectors');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playPauseIcon = document.getElementById('play-pause-icon');
+
+        // Telemetry readout nodes
+        const telVelocity = document.getElementById('tel-velocity');
+        const telAltitude = document.getElementById('tel-altitude');
+        const telEccentricity = document.getElementById('tel-eccentricity');
+        const telStatus = document.getElementById('tel-status');
+
+        // Vector 2D helper class
+        class Vector {
+            constructor(x = 0, y = 0) {
+                this.x = x;
+                this.y = y;
+            }
+            add(v) { return new Vector(this.x + v.x, this.y + v.y); }
+            sub(v) { return new Vector(this.x - v.x, this.y - v.y); }
+            mult(n) { return new Vector(this.x * n, this.y * n); }
+            div(n) { return n !== 0 ? new Vector(this.x / n, this.y / n) : new Vector(); }
+            mag() { return Math.sqrt(this.x * this.x + this.y * this.y); }
+            normalize() {
+                const m = this.mag();
+                return m !== 0 ? this.div(m) : new Vector();
+            }
+            dist(v) { return Math.sqrt((this.x - v.x) ** 2 + (this.y - v.y) ** 2); }
+        }
+
+        // Space Object Base Model class
+        class SpaceObject {
+            constructor(x, y, vx = 0, vy = 0, type = 'satellite') {
+                this.pos = new Vector(x, y);
+                this.vel = new Vector(vx, vy);
+                this.trail = [];
+                this.maxTrail = type === 'satellite' ? 240 : 80;
+                this.type = type; // 'satellite', 'debris'
+                this.color = type === 'satellite' ? '#38bdf8' : '#f59e0b';
+                this.radius = type === 'satellite' ? 3.5 : 1.5;
+                this.active = true;
+            }
+
+            update(center) {
+                if (!this.active) return;
+
+                // Precision integration: run sub-steps to prevent numerical leapfrog inaccuracies
+                const subSteps = 6;
+                const dt = (0.15 * timeWarp) / subSteps;
+
+                for (let i = 0; i < subSteps; i++) {
+                    const diff = center.sub(this.pos);
+                    const distance = diff.mag();
+
+                    // Planet collision check
+                    if (distance <= earthRadius) {
+                        this.active = false;
+                        if (this.type === 'satellite') {
+                            setTelemetryCrash();
+                        }
+                        return;
+                    }
+
+                    // Newton's Gravitational calculation: a = GM / r^2
+                    const forceMag = (G * earthMass) / (distance * distance);
+                    const acceleration = diff.normalize().mult(forceMag);
+
+                    this.vel = this.vel.add(acceleration.mult(dt));
+                    this.pos = this.pos.add(this.vel.mult(dt));
+                }
+
+                // Add to trail history periodically
+                if (frameCount % 2 === 0) {
+                    this.trail.push(new Vector(this.pos.x, this.pos.y));
+                    if (this.trail.length > this.maxTrail) {
+                        this.trail.shift();
+                    }
+                }
+            }
+
+            draw() {
+                if (!this.active) return;
+
+                // Draw trail path
+                if (this.trail.length > 1) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = this.type === 'satellite' ? 'rgba(56, 189, 248, 0.25)' : 'rgba(245, 158, 11, 0.12)';
+                    ctx.lineWidth = this.type === 'satellite' ? 1.5 : 1.0;
+                    ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                    for (let i = 1; i < this.trail.length; i++) {
+                        ctx.lineTo(this.trail[i].x, this.trail[i].y);
+                    }
+                    ctx.stroke();
+                }
+
+                // Draw Object
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = this.type === 'satellite' ? 8 : 2;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+
+                // If satellite, draw simple solar arrays
+                if (this.type === 'satellite') {
+                    ctx.beginPath();
+                    ctx.strokeStyle = '#0284c7';
+                    ctx.lineWidth = 1;
+                    ctx.moveTo(this.pos.x - 7, this.pos.y);
+                    ctx.lineTo(this.pos.x + 7, this.pos.y);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+        }
+
+        // Get canvas centroid (Earth Center Position)
+        function getCenter() {
+            return new Vector(canvas.width / 2, canvas.height / 2);
+        }
+
+        // Resize Canvas dynamically
+        function resize() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Preset state profiles
+        function applyMissionPreset(profile) {
+            const center = getCenter();
+            satellites = [];
+            debris = [];
+
+            // Reset simulation variables
+            gravitySlider.value = "1.0";
+            warpSlider.value = "1.0";
+            syncConfiguration();
+
+            let r, v;
+
+            switch (profile) {
+                case 'leo':
+                    // Circular Low Earth Orbit (v = sqrt(GM/r))
+                    r = 150;
+                    v = Math.sqrt((G * earthMass) / r);
+                    satellites.push(new SpaceObject(center.x, center.y - r, v, 0, 'satellite'));
+                    break;
+                case 'geo':
+                    // Highly eccentric Molniya trajectory
+                    r = 110;
+                    v = Math.sqrt((G * earthMass) / r) * 1.35;
+                    satellites.push(new SpaceObject(center.x, center.y - r, v, 0, 'satellite'));
+                    break;
+                case 'escape':
+                    // Hyperbolic/parabolic departure vector
+                    r = 90;
+                    v = Math.sqrt((2 * G * earthMass) / r) * 1.08;
+                    satellites.push(new SpaceObject(center.x, center.y - r, v, 0, 'satellite'));
+                    break;
+                case 'decay':
+                    // Atmospheric decaying plunge path
+                    r = 150;
+                    v = Math.sqrt((G * earthMass) / r) * 0.55;
+                    satellites.push(new SpaceObject(center.x, center.y - r, v, 0, 'satellite'));
+                    break;
+            }
+        }
+
+        // Apply visual thrust delta values
+        function thrustActiveSatellite(dvX, dvY) {
+            const primary = satellites.find(s => s.active && s.type === 'satellite');
+            if (!primary) return;
+            primary.vel.x += dvX;
+            primary.vel.y += dvY;
+        }
+
+        // Prograde/Retrograde thrust math calculations
+        function thrustAlongVelocity(magnitude) {
+            const primary = satellites.find(s => s.active && s.type === 'satellite');
+            if (!primary) return;
+            const dir = primary.vel.normalize();
+            primary.vel = primary.vel.add(dir.mult(magnitude));
+        }
+
+        function thrustRadial(magnitude) {
+            const primary = satellites.find(s => s.active && s.type === 'satellite');
+            if (!primary) return;
+            const center = getCenter();
+            const toEarth = center.sub(primary.pos).normalize();
+            primary.vel = primary.vel.add(toEarth.mult(magnitude));
+        }
+
+        // Predict Future Keplerian Orbital Path (Integrated Euler)
+        function drawOrbitalPathPrediction() {
+            if (!showPrediction) return;
+
+            const center = getCenter();
+            let simPos, simVel;
+
+            if (isSlinging) {
+                simPos = new Vector(slingStart.x, slingStart.y);
+                simVel = new Vector(slingStart.x - slingCurrent.x, slingStart.y - slingCurrent.y).mult(0.065);
+            } else {
+                const primary = satellites.find(s => s.active && s.type === 'satellite');
+                if (!primary) return;
+                simPos = new Vector(primary.pos.x, primary.pos.y);
+                simVel = new Vector(primary.vel.x, primary.vel.y);
+            }
+
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(129, 140, 248, 0.45)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
+
+            // Predict trajectory simulation steps
+            const totalSteps = 450;
+            const dt = 1.3;
+
+            for (let i = 0; i < totalSteps; i++) {
+                const diff = center.sub(simPos);
+                const r = diff.mag();
+
+                if (r <= earthRadius) break; // Trajectory intersects Earth
+
+                const force = (G * earthMass) / (r * r);
+                const acceleration = diff.normalize().mult(force);
+
+                simVel = simVel.add(acceleration.mult(dt));
+                simPos = simPos.add(simVel.mult(dt));
+
+                if (i === 0) ctx.moveTo(simPos.x, simPos.y);
+                else ctx.lineTo(simPos.x, simPos.y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Live telemetry updates calculations
+        function calculateTelemetry() {
+            const primary = satellites.find(s => s.active && s.type === 'satellite');
+            if (!primary) {
+                setTelemetryCrash();
+                return;
+            }
+
+            const center = getCenter();
+            const rVec = primary.pos.sub(center);
+            const r = rVec.mag();
+            const v = primary.vel.mag();
+
+            // Rescale numbers dynamically to readable display values
+            const scaleSpeed = v * 210; // km/s scale
+            const scaleAlt = (r - earthRadius) * 110; // km alt scale
+
+            // Orbit eccentricity approximation (e = sqrt(1 + (2*E*L^2) / mu^2))
+            const vSq = v * v;
+            const mu = G * earthMass;
+            const energy = (vSq / 2) - (mu / r);
+            const angularMomentum = Math.abs(rVec.x * primary.vel.y - rVec.y * primary.vel.x);
+            const eccentricity = Math.sqrt(Math.max(0, 1 + (2 * energy * angularMomentum * angularMomentum) / (mu * mu)));
+
+            // Update UI dashboard
+            telVelocity.innerText = `${scaleSpeed.toFixed(1)} km/s`;
+            telAltitude.innerText = `${scaleAlt.toFixed(0)} km`;
+            telEccentricity.innerText = eccentricity.toFixed(3);
+
+            if (energy < 0) {
+                telStatus.innerText = eccentricity < 0.1 ? "Orbit Circular" : "Orbit Elliptic";
+                telStatus.className = "font-mono text-emerald-400 font-extrabold text-xs mt-0.5";
+            } else {
+                telStatus.innerText = "Escape Velocity";
+                telStatus.className = "font-mono text-amber-400 font-extrabold text-xs mt-0.5 animate-pulse";
+            }
+        }
+
+        function setTelemetryCrash() {
+            telVelocity.innerText = "0.0 km/s";
+            telAltitude.innerText = "0 km";
+            telEccentricity.innerText = "N/A";
+            telStatus.innerText = "De-orbited (Crash)";
+            telStatus.className = "font-mono text-rose-500 font-extrabold text-xs mt-0.5";
+        }
+
+        // Draw visual system vector indicator lines
+        function drawVectorLines(center) {
+            if (!showVectors) return;
+
+            const primary = satellites.find(s => s.active && s.type === 'satellite');
+            if (!primary) return;
+
+            // Velocity vector representation line (Green)
+            ctx.beginPath();
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = 1.8;
+            ctx.moveTo(primary.pos.x, primary.pos.y);
+            ctx.lineTo(primary.pos.x + primary.vel.x * 6, primary.pos.y + primary.vel.y * 6);
+            ctx.stroke();
+
+            // Gravity force pull vector representation line (Indigo)
+            ctx.beginPath();
+            ctx.strokeStyle = '#6366f1';
+            ctx.lineWidth = 1.5;
+            ctx.moveTo(primary.pos.x, primary.pos.y);
+            const dir = center.sub(primary.pos).normalize();
+            ctx.lineTo(primary.pos.x + dir.x * 35, primary.pos.y + dir.y * 35);
+            ctx.stroke();
+        }
+
+        // Main animation engine loop
+        let frameCount = 0;
+        function loop() {
+            // Draw space stars grid background
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const center = getCenter();
+
+            // Tech grid lines
+            ctx.strokeStyle = 'rgba(255,255,255,0.015)';
+            ctx.lineWidth = 1;
+            const grid = 60;
+            for (let x = 0; x < canvas.width; x += grid) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += grid) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            // Draw trajectory path predictions
+            drawOrbitalPathPrediction();
+
+            // Draw Planet Earth
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, earthRadius, 0, Math.PI * 2);
+            // Ambient Atmosphere atmosphere light blue glow
+            const glow = ctx.createRadialGradient(center.x, center.y, earthRadius - 20, center.x, center.y, earthRadius + 28);
+            glow.addColorStop(0, '#020617');
+            glow.addColorStop(0.65, '#1e3a8a');
+            glow.addColorStop(0.85, '#3b82f6');
+            glow.addColorStop(1, 'rgba(59, 130, 246, 0)');
+            ctx.fillStyle = glow;
+            ctx.fill();
+            ctx.restore();
+
+            // Earth surface outer ring border lines
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, earthRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = '#2563eb';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // Apply updates and physics (if simulation is not paused)
+            if (!isPaused) {
+                satellites.forEach(s => s.update(center));
+                debris.forEach(d => d.update(center));
+                frameCount++;
+            }
+
+            // Render all active space elements
+            debris.forEach(d => d.draw());
+            satellites.forEach(s => s.draw());
+
+            // Draw Vector Indicators
+            drawVectorLines(center);
+
+            // Draw Sling mechanics line while dragging
+            if (isSlinging) {
+                ctx.beginPath();
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 1.8;
+                ctx.setLineDash([2, 3]);
+                ctx.moveTo(slingStart.x, slingStart.y);
+                ctx.lineTo(slingCurrent.x, slingCurrent.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Velocity endpoint marker
+                ctx.beginPath();
+                ctx.arc(slingStart.x, slingStart.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#ef4444';
+                ctx.fill();
+            }
+
+            // Calculate live flight parameters
+            calculateTelemetry();
+
+            requestAnimationFrame(loop);
+        }
+
+        // Sync and map sliders to operational variables
+        function syncConfiguration() {
+            earthMass = parseFloat(gravitySlider.value) * 12000;
+            gravityVal.innerText = `${parseFloat(gravitySlider.value).toFixed(1)}x`;
+
+            timeWarp = parseFloat(warpSlider.value);
+            warpVal.innerText = `${timeWarp.toFixed(1)}x`;
+
+            showPrediction = togglePrediction.checked;
+            showVectors = toggleVectors.checked;
+        }
+
+        // Attach event listeners to Sliders
+        gravitySlider.addEventListener('input', syncConfiguration);
+        warpSlider.addEventListener('input', syncConfiguration);
+        togglePrediction.addEventListener('change', syncConfiguration);
+        toggleVectors.addEventListener('change', syncConfiguration);
+
+        // Click-and-Sling event handlers (mouse and mobile touch)
+        function getEventCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return new Vector(clientX - rect.left, clientY - rect.top);
+        }
+
+        function onStart(e) {
+            const coords = getEventCoords(e);
+            slingStart = coords;
+            slingCurrent = coords;
+            isSlinging = true;
+        }
+
+        function onMove(e) {
+            if (!isSlinging) return;
+            slingCurrent = getEventCoords(e);
+        }
+
+        function onEnd() {
+            if (!isSlinging) return;
+            isSlinging = false;
+
+            // Compute launched orbital velocity vector
+            const vx = (slingStart.x - slingCurrent.x) * 0.065;
+            const vy = (slingStart.y - slingCurrent.y) * 0.065;
+
+            // Replace current active satellite
+            satellites = satellites.filter(s => s.type !== 'satellite');
+            satellites.push(new SpaceObject(slingStart.x, slingStart.y, vx, vy, 'satellite'));
+        }
+
+        canvas.addEventListener('mousedown', onStart);
+        canvas.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onEnd);
+
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); onStart(e); });
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); onMove(e); });
+        window.addEventListener('touchend', onEnd);
+
+        // UI Preset buttons listeners
+        document.getElementById('preset-leo').addEventListener('click', () => applyMissionPreset('leo'));
+        document.getElementById('preset-geo').addEventListener('click', () => applyMissionPreset('geo'));
+        document.getElementById('preset-escape').addEventListener('click', () => applyMissionPreset('escape'));
+        document.getElementById('preset-decay').addEventListener('click', () => applyMissionPreset('decay'));
+
+        // Action controls listeners
+        document.getElementById('thrust-prograde').addEventListener('click', () => thrustAlongVelocity(0.18));
+        document.getElementById('thrust-retrograde').addEventListener('click', () => thrustAlongVelocity(-0.18));
+        document.getElementById('thrust-radial-in').addEventListener('click', () => thrustRadial(0.18));
+        document.getElementById('thrust-radial-out').addEventListener('click', () => thrustRadial(-0.18));
+
+        // Spawn buttons
+        document.getElementById('spawn-satellite').addEventListener('click', () => {
+            const center = getCenter();
+            const r = Math.random() * 100 + 100;
+            const v = Math.sqrt((G * earthMass) / r);
+            satellites.push(new SpaceObject(center.x, center.y - r, v, 0, 'satellite'));
+        });
+
+        document.getElementById('spawn-debris').addEventListener('click', () => {
+            const center = getCenter();
+            // Spawn 5 random small debris particles orbiting Earth
+            for (let i = 0; i < 5; i++) {
+                const r = Math.random() * 160 + 80;
+                const angle = Math.random() * Math.PI * 2;
+                const x = center.x + Math.cos(angle) * r;
+                const y = center.y + Math.sin(angle) * r;
+                const speed = Math.sqrt((G * earthMass) / r);
+                // Velocity vector perpendicular to positional vector
+                const vx = -Math.sin(angle) * speed;
+                const vy = Math.cos(angle) * speed;
+                debris.push(new SpaceObject(x, y, vx, vy, 'debris'));
+            }
+        });
+
+        document.getElementById('clear-debris-btn').addEventListener('click', () => {
+            debris = [];
+        });
+
+        // Sim Flow modifiers
+        playPauseBtn.addEventListener('click', () => {
+            isPaused = !isPaused;
+            playPauseIcon.setAttribute('data-lucide', isPaused ? 'play' : 'pause');
+            lucide.createIcons();
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            applyMissionPreset('leo');
+        });
+
+        // Keyboard hotkeys mappings (W/S/A/D)
+        window.addEventListener('keydown', (e) => {
+            const code = e.key.toLowerCase();
+            if (code === 'w') thrustAlongVelocity(0.12);
+            if (code === 's') thrustAlongVelocity(-0.12);
+            if (code === 'a') thrustRadial(0.12);
+            if (code === 'd') thrustRadial(-0.12);
+        });
+
+        // Initialize state and loop
+        applyMissionPreset('leo');
+        syncConfiguration();
+        loop();
+    </script>
+</body>
+</html>
